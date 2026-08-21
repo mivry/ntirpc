@@ -330,12 +330,20 @@ svc_rqst_expire_ms(struct timespec *to)
 	return timespec_ms(&ts);
 }
 
-void
+bool
 svc_rqst_expire_insert(struct clnt_req *cc)
 {
 	struct cx_data *cx = CX_DATA(cc->cc_clnt);
 	struct svc_rqst_rec *sr_rec = cx->cx_rec->ev_p;
 	struct opr_rbtree_node *nv;
+
+	if (!sr_rec) {
+		__warnx(TIRPC_DEBUG_FLAG_ERROR,
+			"%s: xprt fd %d has no event channel (ev_p NULL),"
+			" transport already destroyed",
+			__func__, cx->cx_rec->xprt.xp_fd);
+		return false;
+	}
 
 	cc->cc_expire_ms = svc_rqst_expire_ms(&cc->cc_timeout);
 
@@ -355,13 +363,22 @@ svc_rqst_expire_insert(struct clnt_req *cc)
 		__func__, sr_rec->sv[0],
 		sr_rec);
 	ev_sig(sr_rec->sv[0], 0);	/* send wakeup */
+	return true;
 }
 
-void
+bool
 svc_rqst_expire_remove(struct clnt_req *cc)
 {
 	struct cx_data *cx = CX_DATA(cc->cc_clnt);
 	struct svc_rqst_rec *sr_rec = cx->cx_rec->ev_p;
+
+	if (!sr_rec) {
+		__warnx(TIRPC_DEBUG_FLAG_ERROR,
+			"%s: xprt fd %d has no event channel (ev_p NULL),"
+			" transport already destroyed",
+			__func__, cx->cx_rec->xprt.xp_fd);
+		return false;
+	}
 
 	mutex_lock(&sr_rec->ev_lock);
 	opr_rbtree_remove(&sr_rec->call_expires, &cc->cc_rqst);
@@ -372,6 +389,7 @@ svc_rqst_expire_remove(struct clnt_req *cc)
 		__func__, sr_rec->sv[0],
 		sr_rec);
 	ev_sig(sr_rec->sv[0], 0);	/* send wakeup */
+	return true;
 }
 
 void

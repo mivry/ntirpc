@@ -502,7 +502,16 @@ clnt_req_callback(struct clnt_req *cc)
 	if (cc->cc_clnt->rdma_clnt) {
 		rdma_clnt_req_expire_insert(cc);
 	} else {
-		svc_rqst_expire_insert(cc);
+		if (!svc_rqst_expire_insert(cc)) {
+			/* Transport's event channel is gone (ev_p NULL):
+			 * the xprt was destroyed before we could register
+			 * the call timeout.  Report the connection as lost
+			 * so the caller can clean up the blocked lock entry
+			 * and try the next waiter.
+			 */
+			cc->cc_error.re_status = RPC_TIMEDOUT;
+			return RPC_TIMEDOUT;
+		}
 	}
 
 	return CLNT_CALL_ONCE(cc);

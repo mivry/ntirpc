@@ -62,8 +62,8 @@ clnt_data_destroy(struct cx_data *cx)
 }
 
 /* in svc_rqst.c */
-void svc_rqst_expire_insert(struct clnt_req *);
-void svc_rqst_expire_remove(struct clnt_req *);
+bool svc_rqst_expire_insert(struct clnt_req *);
+bool svc_rqst_expire_remove(struct clnt_req *);
 void svc_rqst_expire_task(struct work_pool_entry *);
 int svc_rqst_expire_cmpf(const struct opr_rbtree_node *lhs,
 			 const struct opr_rbtree_node *rhs);
