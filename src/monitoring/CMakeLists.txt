@@ -6,9 +6,15 @@ SET(ntirpcmonitoring_SRCS
   monitoring.cc
 )
 
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/libntirpcmonitoring.map.in.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/libntirpcmonitoring.map"
+)
+
 add_library(ntirpcmonitoring SHARED ${ntirpcmonitoring_SRCS})
 add_sanitizers(ntirpcmonitoring)
 set_target_properties(ntirpcmonitoring PROPERTIES
+  LINK_FLAGS "-Wl,--version-script=${CMAKE_CURRENT_BINARY_DIR}/libntirpcmonitoring.map"
   VERSION ${NTIRPC_VERSION}
   SOVERSION "${NTIRPC_MAJOR_VERSION}${NTIRPC_MINOR_VERSION}"
   )
