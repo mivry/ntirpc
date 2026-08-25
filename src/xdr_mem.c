@@ -283,7 +283,12 @@ xdrmem_fillbufs(XDR *xdrs, u_int start, xdr_vio *vector, u_int datalen)
 	vector[0] = xdrs->x_v;
 	vector[0].vio_type = VIO_DATA;
 
-	vector[0].vio_length = vector[0].vio_tail - vector[0].vio_head;
+	/* Return the requested range, relative to vio_head, as xdr_ioq does. */
+	if (xdrs->x_v.vio_head != NULL) {
+		vector[0].vio_head = xdrs->x_v.vio_head + start;
+		vector[0].vio_tail = vector[0].vio_head + datalen;
+	}
+	vector[0].vio_length = datalen;
 	return true;
 }
 
