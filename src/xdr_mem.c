@@ -231,10 +231,36 @@ xdrmem_noop(void)
 	return (false);
 }
 
+/*
+ * Does [start, start + datalen) lie within the used part of the buffer?
+ *
+ * Compared using lengths rather than by forming vio_head + start + datalen:
+ * that pointer may be outside the object, which is undefined, and where
+ * pointers are 32 bits it can wrap far enough to satisfy a naive comparison.
+ * datalen routinely arrives straight off the wire, so the check has to hold
+ * for hostile values.
+ */
+static inline bool
+xdrmem_range_valid(XDR *xdrs, u_int start, u_int datalen)
+{
+	size_t used;
+
+	if (xdrs->x_v.vio_head == NULL || xdrs->x_v.vio_tail == NULL) {
+		/* xdrmem_ncreate() accepts a NULL buffer; only an empty
+		 * range can be served from one.
+		 */
+		return start == 0 && datalen == 0;
+	}
+
+	used = (size_t)(xdrs->x_v.vio_tail - xdrs->x_v.vio_head);
+
+	return start <= used && datalen <= used - start;
+}
+
 static int
 xdrmem_iovcount(XDR *xdrs, u_int start, u_int datalen)
 {
-	if ((xdrs->x_v.vio_head + start + datalen) > xdrs->x_v.vio_tail) {
+	if (!xdrmem_range_valid(xdrs, start, datalen)) {
 		/* start and datalen reference outside the size of the data
 		 * in the buffer.
 		 */
@@ -247,7 +273,7 @@ xdrmem_iovcount(XDR *xdrs, u_int start, u_int datalen)
 static bool
 xdrmem_fillbufs(XDR *xdrs, u_int start, xdr_vio *vector, u_int datalen)
 {
-	if ((xdrs->x_v.vio_head + start + datalen) > xdrs->x_v.vio_tail) {
+	if (!xdrmem_range_valid(xdrs, start, datalen)) {
 		/* start and datalen reference outside the size of the data
 		 * in the buffer.
 		 */
@@ -256,7 +282,13 @@ xdrmem_fillbufs(XDR *xdrs, u_int start, xdr_vio *vector, u_int datalen)
 
 	vector[0] = xdrs->x_v;
 	vector[0].vio_type = VIO_DATA;
-	vector[0].vio_length = vector[0].vio_tail - vector[0].vio_head;
+
+	/* Return the requested range, relative to vio_head, as xdr_ioq does. */
+	if (xdrs->x_v.vio_head != NULL) {
+		vector[0].vio_head = xdrs->x_v.vio_head + start;
+		vector[0].vio_tail = vector[0].vio_head + datalen;
+	}
+	vector[0].vio_length = datalen;
 	return true;
 }
 
